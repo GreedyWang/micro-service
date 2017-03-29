@@ -1,5 +1,8 @@
 import com.netflix.hystrix.HystrixCommand;
 import com.netflix.hystrix.HystrixCommandGroupKey;
+import rx.Observable;
+import rx.Observer;
+import rx.functions.Action1;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -21,6 +24,11 @@ public class HelloWorldCommand extends HystrixCommand<String> {
         return "Hello " + name +" thread:" + Thread.currentThread().getName();
     }
 
+    @Override
+    protected String getFallback() {
+        return "exeucute Falled";
+    }
+
     //调用实例
     public static void main(String[] args) throws Exception{
         //每个Command对象只能调用一次,不可以重复调用,
@@ -37,5 +45,37 @@ public class HelloWorldCommand extends HystrixCommand<String> {
         result = future.get(100, TimeUnit.MILLISECONDS);
         System.out.println("result=" + result);
         System.out.println("mainThread=" + Thread.currentThread().getName());
+    }
+
+    public void asyncCall() {
+        Observable<String> fs = new HelloWorldCommand("w").observe();//Rxjava Observable
+        //注册结果回调事件
+        fs.subscribe(new Action1<String>() {
+            @Override
+            public void call(String result) {
+                //执行结果处理,result 为HelloWorldCommand返回的结果
+                //用户对结果做二次处理.
+            }
+        });
+
+        //注册完整执行生命周期事件
+        fs.subscribe(new Observer<String>() {
+            @Override
+            public void onCompleted() {
+                // onNext/onError完成之后最后回调
+                System.out.println("execute onCompleted");
+            }
+            @Override
+            public void onError(Throwable e) {
+                // 当产生异常时回调
+                System.out.println("onError " + e.getMessage());
+                e.printStackTrace();
+            }
+            @Override
+            public void onNext(String v) {
+                // 获取结果后回调
+                System.out.println("onNext: " + v);
+            }
+        });
     }
 }
